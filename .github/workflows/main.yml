@@ -36,6 +36,6 @@ jobs:
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: Netflix Job Listings Update
-          to: mattstiles@gmail.com
+          to: haekeostiles@gmail.com
           from: GitHub Actions
           body: The Netflix job listings have been updated!
