@@ -1,2 +1,2 @@
-# jobs
-Scraping data-related job postings
+# Jobs
+Scraping posts about data-related roles
