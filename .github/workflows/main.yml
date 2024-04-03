@@ -26,6 +26,7 @@ jobs:
           git config --global user.name "Matt Stiles"
           git add .
           git commit -m "Updated job listings" || echo "No changes to commit"
+          git remote set-url origin https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/stiles/jobs.git
           git push
       - name: Send notification email
         uses: dawidd6/action-send-mail@v2
