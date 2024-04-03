@@ -2,7 +2,8 @@ name: Fetch and process job listings
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs at midnight UTC every day.
+    - cron: '0 12 * * *' # at 5 am PST each day.
+  workflow_dispatch:
 
 jobs:
   run_notebook:
@@ -34,7 +35,6 @@ jobs:
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: Netflix Job Listings Update
-          # Use your email
           to: mattstiles@gmail.com
           from: GitHub Actions
-          body: The Netflix job listings have been updated! 
+          body: The Netflix job listings have been updated!
