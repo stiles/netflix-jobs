@@ -6,6 +6,5 @@
     },
     "database_path": "data/db/netflix_jobs.db",
     "log_file_path": "logs/netflix_jobs_log.txt",
-    "params": {},
-    "dbpath": "data/db/netflix_jobs.db"
+    "params": {}
 }

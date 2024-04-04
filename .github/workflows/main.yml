@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas numpy requests beautifulsoup4 sqlalchemy
+          pip install pandas tqdm numpy requests beautifulsoup4 sqlalchemy
       - name: Run script
         run: python netflix.py
       - name: Commit and push if there are changes
@@ -38,4 +38,4 @@ jobs:
           subject: Netflix Job Listings Update
           to: haekeostiles@gmail.com
           from: GitHub Actions
-          body: The Netflix job listings have been updated!
+          body: email_content

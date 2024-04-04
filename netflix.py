@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Jobs
-# > This script fetches, processes and analyzes [job postings by Netflix](https://jobs.netflix.com/search?page=`1`). 
-
-#### Load Python tools and Jupyter config
+"""
+Jobs
+This script fetches, processes, and analyzes job postings by Netflix.
+"""
 
 import re
 import json
@@ -14,170 +14,32 @@ import requests
 import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
-from collections import Counter
+from datetime import datetime
+from tqdm import tqdm
 
-today = pd.Timestamp("today").strftime("%Y%m%d")
+# Load configuration settings
+config = {}
+try:
+    with open('config.json', 'r') as config_file:
+        config = json.load(config_file)
+except Exception as e:
+    print(f"Failed to load configurations: {e}")
+    exit(1)
 
-logging.basicConfig(level=logging.INFO, filename="netflix_jobs_log.txt", filemode="a",
+# Setup logging
+logging.basicConfig(level=logging.INFO, 
+                    filename=config.get("log_file_path", "netflix_jobs_log.txt"),
+                    filemode="a",
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
-try:
-    with open('config.json', 'r') as config_file:
-        config = json.load(config_file)
-    logging.getLogger().handlers[0].baseFilename = config.get("log_file_path", "netflix_jobs_log.txt")
-except Exception as e:
-    logging.error(f"Failed to load configurations: {e}")
-    exit(1)
+headers = config["headers"]
+db_path = config["database_path"]
+params = config.get('params', {})
 
+# Today's date for file naming
+today = datetime.now().strftime("%Y%m%d")
 
-## Helper functions
-
-#### Function to deal with lists in some columns
-
-def extract_first_item(list_like):
-    """Extract the first item from a list-like object or return None if empty."""
-    if list_like and isinstance(list_like, list):
-        return list_like[0]
-    return None
-
-
-#### Strip markup from description columns
-
-def strip_html_tags(content):
-    """Remove HTML tags from the provided content."""
-    if content:
-        soup = BeautifulSoup(content, "html.parser")
-        return soup.get_text(separator=" ", strip=True)
-    return content
-
-#### Function to extract salary ranges
-
-def extract_salary(text):
-    pattern = r"the\s+range\s+for\s+this\s+role\s+is\s+(\$\d{1,3}(?:,\d{3})+)(?:\s*-\s*(\$\d{1,3}(?:,\d{3})+))?"
-    match = re.search(pattern, text, re.IGNORECASE)
-
-    if match:
-        return match.group(1), match.group(2) if match.group(2) else np.nan
-    return np.nan, np.nan
-
-
-#### Function to clean and convert salary values
-
-def clean_salary(salary):
-    if pd.isna(salary):
-        return np.nan
-    return float(salary.replace("$", "").replace(",", ""))
-
-
-#### Function to extract our keywords
-
-def extract_keywords(description, keywords):
-    found_keywords = []
-    description_lower = description.lower()
-    for category, keys in keywords.items():
-        for key in keys:
-            if key.lower() in description_lower and key.lower() not in found_keywords:
-                found_keywords.append(key.lower())
-    return found_keywords
-
-
-
-## Fetch
-
-#### Headers and parameters for initial request
-
-try:
-    with open('config.json', 'r') as config_file:
-        config = json.load(config_file)
-    headers = config["headers"]
-    db_path = config["database_path"]
-    params = config['params']
-
-    logging.getLogger().handlers[0].baseFilename = config.get("log_file_path", "netflix_jobs_log.txt")
-except Exception as e:
-    logging.error(f"Failed to load configurations: {e}")
-
-#### Initial request to get the total number of pages
-
-try:
-    response = requests.get("https://jobs.netflix.com/api/search", params=params, headers=headers)
-    response.raise_for_status()  # This will raise an error for bad responses
-    data = response.json()
-    total_pages = data["info"]["postings"]["num_pages"]
-except requests.exceptions.RequestException as e:
-    logging.error(f"Request failed: {e}")
-    exit(1)
-
-#### Loop through each page to fetch postings
-
-all_postings = []
-
-for page in range(1, total_pages + 1):
-    params["page"] = page
-    response = requests.get(
-        "https://jobs.netflix.com/api/search", params=params, headers=headers
-    )
-    postings = response.json()["records"]["postings"]
-
-    all_postings.extend(postings)
-
-
-## Process
-
-#### Convert the list of postings into a pandas DataFrame
-
-cols = [
-    "external_id",
-    "slug",
-    "text",
-    "department",
-    "team",
-    "state",
-    "updated_at",
-    "created_at",
-    "location",
-    "organization",
-    "subteam",
-    "lever_team",
-    "description",
-    "search_text",
-]
-
-src = pd.DataFrame(all_postings)[cols]
-
-#### Apply the function to each list column
-
-src["team"] = src["team"].apply(extract_first_item)
-src["subteam"] = src["subteam"].apply(extract_first_item)
-src["organization"] = src["organization"].apply(extract_first_item)
-
-#### Apply the function to strip HTML from the 'description' and 'search_text' columns
-
-src["description"] = src["description"].apply(strip_html_tags)
-src["search_text"] = src["search_text"].apply(strip_html_tags)
-
-#### Deal with all dates
-
-src["created_at"] = pd.to_datetime(src["created_at"])
-src["updated_at"] = pd.to_datetime(src["updated_at"])
-
-
-## Extract
-
-#### Apply the function and directly split the results into two new columns
-
-src["salary_lower"], src["salary_upper"] = zip(
-    *src["description"].apply(extract_salary)
-)
-
-#### Clean and convert salary columns
-
-src["salary_lower"] = src["salary_lower"].apply(clean_salary)
-src["salary_upper"] = src["salary_upper"].apply(clean_salary)
-
-
-#### On the hunt for data science-y roles
-
+# Keywords list for extraction
 keywords = {
     "data science": [
         "database",
@@ -222,59 +84,147 @@ keywords = {
     ],
 }
 
-#### Place the keywords in a column
+# Helper functions
+def extract_first_item(list_like):
+    return list_like[0] if list_like and isinstance(list_like, list) else None
 
-src["keywords"] = src["description"].apply(lambda x: extract_keywords(x, keywords))
+def strip_html_tags(content):
+    return BeautifulSoup(content, "html.parser").get_text(separator=" ", strip=True) if content else content
+
+def extract_salary(text):
+    pattern = r"the\s+range\s+for\s+this\s+role\s+is\s+(\$\d{1,3}(?:,\d{3})+)(?:\s*-\s*(\$\d{1,3}(?:,\d{3})+))?"
+    match = re.search(pattern, text, re.IGNORECASE)
+    return (match.group(1), match.group(2) if match.group(2) else np.nan) if match else (np.nan, np.nan)
+
+def clean_salary(salary):
+    return float(salary.replace("$", "").replace(",", "")) if pd.notna(salary) else np.nan
+
+def extract_keywords(description, keywords):
+    found_keywords = []
+    description_lower = description.lower()
+    for category, keys in keywords.items():
+        for key in keys:
+            if key.lower() in description_lower:
+                found_keywords.append(key.lower())
+    return found_keywords
+
+# Initialize database
+def initialize_db(conn):
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS jobs_archive (
+        external_id TEXT UNIQUE,
+        slug TEXT,
+        description TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        location TEXT,
+        department TEXT,
+        team TEXT,
+        organization TEXT,
+        subteam TEXT,
+        lever_team TEXT,
+        search_text TEXT,
+        keywords TEXT,
+        salary_lower REAL,
+        salary_upper REAL
+    );
+    """
+    try:
+        conn.execute(create_table_query)
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to initialize database: {e}")
+
+# Fetch the job postings
+def fetch_postings():
+    try:
+        response = requests.get("https://jobs.netflix.com/api/search", params=params, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        total_pages = data["info"]["postings"]["num_pages"]
+        
+        all_postings = []
+        for page in tqdm(range(1, total_pages + 1)):
+            params["page"] = page
+            page_response = requests.get("https://jobs.netflix.com/api/search", params=params, headers=headers)
+            page_response.raise_for_status()
+            postings = page_response.json()["records"]["postings"]
+            all_postings.extend(postings)
+        return all_postings
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Request failed: {e}")
+        return []
 
 
-## Store
+def process_and_store_postings(postings, conn):
+    df = pd.DataFrame(postings)
+    df['team'] = df['team'].apply(extract_first_item)
+    df['description'] = df['description'].apply(strip_html_tags)
+    df[['salary_lower', 'salary_upper']] = pd.DataFrame(df['description'].apply(extract_salary).tolist(), index=df.index)
+    df['salary_lower'] = df['salary_lower'].apply(clean_salary)
+    df['salary_upper'] = df['salary_upper'].apply(clean_salary)
+    df['keywords'] = df['description'].apply(lambda x: extract_keywords(x, keywords))
+    df['created_at'] = pd.to_datetime(df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
+    df['updated_at'] = pd.to_datetime(df['updated_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
+    df['salary_lower'] = df['salary_lower'].astype(float)
+    df['salary_upper'] = df['salary_upper'].astype(float)
+    df['keywords'] = df['keywords'].apply(lambda x: ', '.join(x) if isinstance(x, list) else x)
+    df['location'] = df['location'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
+    df['team'] = df['team'].fillna('')
+    df['organization'] = df['organization'].apply(lambda x: ', '.join(x) if isinstance(x, list) else x)
+    df['organization'] = df['organization'].apply(lambda x: '' if pd.isnull(x) else str(x))
+    df['subteam'] = df['subteam'].apply(lambda x: ', '.join(x) if isinstance(x, list) else x)
+    df['subteam'] = df['subteam'].apply(lambda x: '' if pd.isnull(x) else str(x))
+    
+    # Select columns that match the database schema
+    df_selected = df[['external_id', 'slug', 'description', 'created_at', 'updated_at', 'location', 'department', 'team','organization', 'subteam', 'lever_team', 'search_text', 'keywords', 'salary_lower', 'salary_upper']].copy()
 
-#### A clean dataframe
+    # Export to CSV and JSON
+    df_selected.to_csv(f"data/processed/netflix_listings.csv", index=False)
+    df_selected.to_json(f"data/processed/netflix_listings.json", orient='records', lines=True, indent=4)
 
-df = src.copy()
+    existing_ids = pd.read_sql_query('SELECT external_id FROM jobs_archive', conn)['external_id'].tolist()
+    df_filtered = df_selected[~df_selected['external_id'].isin(existing_ids)]
 
-#### Connect to a SQLite database
+    # Insert processed dataframe into the database
+    try:
+        # Insert into a temporary table
+        df_filtered.to_sql("temp_jobs_archive", conn, if_exists="replace", index=False)
 
-try:
-    conn = sqlite3.connect(db_path)  # Use db_path from config
-except sqlite3.Error as e:
-    logging.error(f"Database connection failed: {e}")
-    exit(1)
+        # Insert from temporary table to main table where external_id does not exist in the main table
+        conn.execute("""
+            INSERT INTO jobs_archive (external_id, slug, description, created_at, updated_at, location, department, team, organization, subteam, lever_team, search_text, keywords, salary_lower, salary_upper)
+            SELECT external_id, slug, description, created_at, updated_at, location, department, team, organization, subteam, lever_team, search_text, keywords, salary_lower, salary_upper
+            FROM temp_jobs_archive
+            WHERE external_id NOT IN (SELECT external_id FROM jobs_archive)
+        """)
+        conn.commit()
 
-#### Prepare data types for the database
+        full_archive_df = pd.read_sql_query("SELECT * FROM jobs_archive", conn)
+        
+        # Export the full archive to CSV and JSON
+        full_archive_df.to_csv(f"data/processed/netflix_full_archive_{today}.csv", index=False)
+        full_archive_df.to_json(f"data/processed/netflix_full_archive_{today}.json", orient='records', lines=True, indent=4)
 
-df = df.astype(str)
-df["created_at"] = pd.to_datetime(df["created_at"]).astype(str)
-df["updated_at"] = pd.to_datetime(df["updated_at"]).astype(str)
+        # Drop the temporary table after use
+        conn.execute("DROP TABLE IF EXISTS temp_jobs_archive")
+        conn.commit()
 
-#### Store the dataframe as a table in the database
+    except Exception as e:
+        logging.error(f"Failed to archive postings: {e}")
 
-try:
-    df.to_sql("jobs", conn, if_exists="replace", index=False)
-except Exception as e:
-    logging.error(f"Failed to insert data into the database: {e}")
-
-#### Use Pandas to execute a query for 'data' jobs that are remote or in LA
-
-query = """
-SELECT * FROM jobs 
-WHERE 
-    (location LIKE '%Los Angeles%' OR location LIKE '%Remote%') 
-    AND 
-    team LIKE '%Data%';
-"""
-df_query_results = pd.read_sql_query(query, conn)
-
-
-## Exports
-
-#### CSV format
-
-df.to_csv("data/processed/netflix_listings.csv", index=False)
-df.to_csv(f"data/processed/archive/netflix_listings_{today}.csv", index=False)
-
-#### JSON format
-
-df.to_json("data/processed/netflix_listings.json", indent=4, orient="records")
-df.to_json(f"data/processed/archive/netflix_listings_{today}.json", indent=4, orient="records")
-
+if __name__ == "__main__":
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        initialize_db(conn)
+        postings = fetch_postings()
+        if postings:
+            process_and_store_postings(postings, conn)
+        else:
+            logging.info("No new postings found.")
+    except Exception as e:
+        logging.error(f"Script execution failed: {e}")
+    finally:
+        if conn:
+            conn.close()
