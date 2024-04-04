@@ -19,7 +19,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas tqdm numpy requests beautifulsoup4 sqlalchemy
       - name: Run script
-        run: python netflix.py
+        run: python 00-fetch-listings.py
       - name: Commit and push if there are changes
         run: |
           git config --global user.email "mattstiles@gmail.com"
@@ -35,7 +35,7 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: Netflix Job Listings Update
+          subject: You fetched new Netflix job listings!
           to: haekeostiles@gmail.com
           from: GitHub Actions
           body: email_content
