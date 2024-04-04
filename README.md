@@ -10,7 +10,7 @@ This Python script, with the help of Github Actions, automates fetching, process
 - Uses `tqdm` for progress tracking through pages.
 
 ## Processing
-- Utilizes `BeautifulSoup    to parse HTML content, extracting and cleaning relevant fields such as job descriptions and titles.
+- Utilizes `BeautifulSoup` to parse HTML content, extracting and cleaning relevant fields such as job descriptions and titles.
 - Formats list-like fields and dates for consistency.
 - Extracts and cleans salary information.
 - Searches for predefined keywords within job descriptions to tag postings with relevant categories (data science, engineering, visualization).
@@ -37,3 +37,4 @@ This Python script, with the help of Github Actions, automates fetching, process
 - Ensure all required libraries are installed and the config.json file is configured with the correct paths and settings.
 - Run the script to fetch, process, and store the latest job postings data.
 - Access the exported CSV and JSON files for the complete dataset.
+- **TO DO:** Get an email with *formatted* results! 
