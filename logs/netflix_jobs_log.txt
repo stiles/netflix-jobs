@@ -2,3 +2,5 @@
 2024-05-01 12:06:44,978 - INFO - No new postings found.
 2024-05-04 12:06:20,949 - ERROR - Request failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
 2024-05-04 12:06:20,949 - INFO - No new postings found.
+2024-05-23 12:06:44,032 - ERROR - Request failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2024-05-23 12:06:44,032 - INFO - No new postings found.
