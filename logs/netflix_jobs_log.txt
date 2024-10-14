@@ -89,3 +89,5 @@
 2024-10-11 12:02:32,658 - ERROR - Script execution failed: 'team'
 2024-10-12 12:02:28,951 - ERROR - Script execution failed: 'team'
 2024-10-13 12:02:41,506 - ERROR - Script execution failed: 'team'
+2024-10-14 12:06:54,908 - ERROR - Request failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2024-10-14 12:06:54,908 - INFO - No new postings found.
